@@ -5,7 +5,6 @@ CPU::CPU(Memory& mem)
     : memory(mem), registers(), alu(), decoder(), pc(0), ir(), halted(false) {}
 
 std::uint16_t CPU::fetch() {
-    // Need 2 bytes: pc and pc+1 must both be inside memory
     if (pc + 1 >= memory.size()) {
         halted = true;
         return 0;
@@ -19,7 +18,7 @@ bool CPU::step() {
     if (halted) return false;
 
     std::uint16_t word = fetch();
-    if (halted) return false;       // end of memory
+    if (halted) return false;
 
     ir = decoder.decode(word);
     if (!ir.isValid()) {
@@ -35,15 +34,15 @@ void CPU::execute(const Instruction& inst) {
     std::uint8_t r = inst.getRegR();
 
     switch (inst.getOpcode()) {
-        case Opcode::LOAD_MEM:   // 1RXY : R = memory[XY]
+        case Opcode::LOAD_MEM:
             registers.write(r, memory.readByte(inst.getAddress()));
             break;
 
-        case Opcode::LOAD_VAL:   // 2RXY : R = XY
+        case Opcode::LOAD_VAL:
             registers.write(r, inst.getImmediate());
             break;
 
-        case Opcode::STORE:      // 3RXY : memory[XY] = R  (address 00 = screen)
+        case Opcode::STORE:
             if (inst.getAddress() == 0x00) {
                 std::cout << "Screen: 0x" << std::hex << std::uppercase
                           << static_cast<int>(registers.read(r))
@@ -52,27 +51,39 @@ void CPU::execute(const Instruction& inst) {
             memory.writeByte(inst.getAddress(), registers.read(r));
             break;
 
-        case Opcode::MOVE:       // 40RS : S = R
+        case Opcode::MOVE:
             registers.write(inst.getOperandY(), registers.read(inst.getOperandX()));
             break;
 
-        case Opcode::ADD_INT:    // 5RST : R = S + T (two's complement)
+        case Opcode::ADD_INT:
             registers.write(r, alu.addInteger(registers.read(inst.getOperandX()),
                                               registers.read(inst.getOperandY())));
             break;
 
-        case Opcode::ADD_FLOAT:  // 6RST : R = S + T (floating point)
+        case Opcode::ADD_FLOAT:
             registers.write(r, alu.addFloat(registers.read(inst.getOperandX()),
                                             registers.read(inst.getOperandY())));
             break;
 
-        case Opcode::JUMP_EQ:    // BRXY : if R == R0 then PC = XY
+        case Opcode::OR:
+            registers.write(r, registers.read(inst.getOperandX()) | registers.read(inst.getOperandY()));
+            break;
+
+        case Opcode::AND:
+            registers.write(r, registers.read(inst.getOperandX()) & registers.read(inst.getOperandY()));
+            break;
+
+        case Opcode::XOR:
+            registers.write(r, registers.read(inst.getOperandX()) ^ registers.read(inst.getOperandY()));
+            break;
+
+        case Opcode::JUMP_EQ:
             if (registers.read(r) == registers.read(0)) {
                 pc = inst.getAddress();
             }
             break;
 
-        case Opcode::HALT:       // C000
+        case Opcode::HALT:
             halted = true;
             break;
 
